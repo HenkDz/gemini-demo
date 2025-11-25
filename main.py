@@ -42,6 +42,22 @@ async def inject_start_button_and_wait(page):
 
     result = await page.evaluate("""() => {
         return new Promise((resolve) => {
+            // Add CSS animation for entrance effect
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideUpFadeIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(20px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+
             // Step 1: Create initial "FILL OUT APPLICATION" button
             const initialButton = document.createElement('button');
             initialButton.id = 'start-application-btn';
@@ -51,7 +67,7 @@ async def inject_start_button_and_wait(page):
             initialButton.style.cssText = `
                 position: fixed;
                 top: 20px;
-                right: 20px;
+                left: 20px;
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
@@ -73,6 +89,7 @@ async def inject_start_button_and_wait(page):
                 transition: all 0.2s ease;
                 user-select: none;
                 box-shadow: none;
+                animation: slideUpFadeIn 0.6s ease-out;
             `;
 
             // Add hover effect
@@ -97,7 +114,7 @@ async def inject_start_button_and_wait(page):
                 container.style.cssText = `
                     position: fixed;
                     top: 20px;
-                    right: 20px;
+                    left: 20px;
                     display: flex;
                     gap: 8px;
                     z-index: 2147483647;
