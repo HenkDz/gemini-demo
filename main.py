@@ -325,6 +325,7 @@ async def apply_to_job(applicant_info: dict, resume_path: str):
     agent = Agent(
         task=task,
         llm=llm,
+        demo_mode=True,
         browser=browser,
         tools=tools,
         available_file_paths=available_file_paths,
