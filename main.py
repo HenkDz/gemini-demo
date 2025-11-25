@@ -31,22 +31,24 @@ load_dotenv()
 
 async def inject_start_button_and_wait(page):
     """
-    Inject a floating 'Start Application' button and wait for user to click it.
+    Inject a two-step UI:
+    1. 'FILL OUT APPLICATION' button
+    2. Model selection dropdown + 'SUBMIT' button
 
-    Uses a JavaScript Promise that resolves when the button is clicked,
-    allowing Python to wait naturally with await.
+    Uses JavaScript Promises to wait for user interactions.
+    Returns the selected model name.
     """
-    print("\n🌐 Browser opened. Waiting for you to click 'Start Application' button...")
+    print("\n🌐 Browser opened. Waiting for you to click 'FILL OUT APPLICATION' button...")
 
     result = await page.evaluate("""() => {
         return new Promise((resolve) => {
-            // Create the button element
-            const button = document.createElement('button');
-            button.id = 'start-application-btn';
-            button.innerHTML = 'FILL OUT APPLICATION';
+            // Step 1: Create initial "FILL OUT APPLICATION" button
+            const initialButton = document.createElement('button');
+            initialButton.id = 'start-application-btn';
+            initialButton.innerHTML = 'FILL OUT APPLICATION';
 
             // Style the button (modern design with Inter font)
-            button.style.cssText = `
+            initialButton.style.cssText = `
                 position: fixed;
                 top: 20px;
                 right: 20px;
@@ -74,39 +76,141 @@ async def inject_start_button_and_wait(page):
             `;
 
             // Add hover effect
-            button.addEventListener('mouseenter', () => {
-                button.style.background = '#e66a0d';
-                button.style.boxShadow = '0 0 20px rgba(254, 117, 14, 0.4)';
+            initialButton.addEventListener('mouseenter', () => {
+                initialButton.style.background = '#e66a0d';
+                initialButton.style.boxShadow = '0 0 20px rgba(254, 117, 14, 0.4)';
             });
 
-            button.addEventListener('mouseleave', () => {
-                button.style.background = '#fe750e';
-                button.style.boxShadow = 'none';
+            initialButton.addEventListener('mouseleave', () => {
+                initialButton.style.background = '#fe750e';
+                initialButton.style.boxShadow = 'none';
             });
 
-            // Click handler - resolves Promise when clicked
-            button.addEventListener('click', () => {
-                // Visual feedback
-                button.style.background = '#d55f0c';
-                button.style.opacity = '0.5';
-                button.style.pointerEvents = 'none';
-                button.innerHTML = 'STARTING...';
+            // Click handler for initial button
+            initialButton.addEventListener('click', () => {
+                // Remove initial button
+                initialButton.remove();
 
-                // Remove button after short delay
-                setTimeout(() => {
-                    button.remove();
-                }, 500);
+                // Step 2: Create model selection UI
+                const container = document.createElement('div');
+                container.id = 'model-selection-container';
+                container.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    display: flex;
+                    gap: 8px;
+                    z-index: 2147483647;
+                `;
 
-                // Resolve the Promise to notify Python
-                resolve('started');
+                // Create dropdown
+                const dropdown = document.createElement('select');
+                dropdown.id = 'model-dropdown';
+                dropdown.style.cssText = `
+                    height: 38px;
+                    padding: 0 12px;
+                    background: white;
+                    color: black;
+                    font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    font-size: 14px;
+                    font-weight: 500;
+                    border: 1px solid #fd8a3d;
+                    border-radius: 0;
+                    cursor: pointer;
+                    outline: none;
+                `;
+
+                // Add options
+                const options = [
+                    { value: 'bu-latest', text: 'Browser Use (bu-latest)' },
+                    { value: 'gpt-5.1', text: 'OpenAI (gpt-5.1)' },
+                    { value: 'gemini-3-pro-preview', text: 'Google (gemini-3-pro-preview)' }
+                ];
+
+                options.forEach(opt => {
+                    const option = document.createElement('option');
+                    option.value = opt.value;
+                    option.textContent = opt.text;
+                    // Default to Browser Use
+                    if (opt.value === 'bu-latest') {
+                        option.selected = true;
+                    }
+                    dropdown.appendChild(option);
+                });
+
+                // Create submit button
+                const submitButton = document.createElement('button');
+                submitButton.id = 'submit-model-btn';
+                submitButton.innerHTML = 'SUBMIT';
+                submitButton.style.cssText = `
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    white-space: nowrap;
+                    height: 38px;
+                    padding: 0 32px;
+                    background: #fe750e;
+                    color: black;
+                    font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    font-size: 14px;
+                    font-weight: 500;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    border: 1px solid #fd8a3d;
+                    border-radius: 0;
+                    cursor: pointer;
+                    min-width: 120px;
+                    transition: all 0.2s ease;
+                    user-select: none;
+                    box-shadow: none;
+                `;
+
+                // Submit button hover effects
+                submitButton.addEventListener('mouseenter', () => {
+                    submitButton.style.background = '#e66a0d';
+                    submitButton.style.boxShadow = '0 0 20px rgba(254, 117, 14, 0.4)';
+                });
+
+                submitButton.addEventListener('mouseleave', () => {
+                    submitButton.style.background = '#fe750e';
+                    submitButton.style.boxShadow = 'none';
+                });
+
+                // Submit button click handler
+                submitButton.addEventListener('click', () => {
+                    const selectedModel = dropdown.value;
+
+                    // Visual feedback
+                    submitButton.style.background = '#d55f0c';
+                    submitButton.style.opacity = '0.5';
+                    submitButton.style.pointerEvents = 'none';
+                    submitButton.innerHTML = 'STARTING...';
+                    dropdown.disabled = true;
+                    dropdown.style.opacity = '0.5';
+
+                    // Remove UI after short delay
+                    setTimeout(() => {
+                        container.remove();
+                    }, 500);
+
+                    // Resolve with selected model
+                    resolve(selectedModel);
+                });
+
+                // Append elements to container
+                container.appendChild(dropdown);
+                container.appendChild(submitButton);
+
+                // Append container to body
+                document.body.appendChild(container);
             });
 
-            // Append to body
-            document.body.appendChild(button);
+            // Append initial button to body
+            document.body.appendChild(initialButton);
         });
     }""")
 
-    print("✓ User clicked 'Start Application'! Starting automated form filling...\n")
+    print(f"✓ User selected model: {result}. Starting automated form filling...\n")
     return result
 
 
