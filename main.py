@@ -29,6 +29,78 @@ from browser_use.tools.views import UploadFileAction
 load_dotenv()
 
 
+async def inject_start_button_and_wait(page):
+    """
+    Inject a floating 'Start Application' button and wait for user to click it.
+
+    Uses a JavaScript Promise that resolves when the button is clicked,
+    allowing Python to wait naturally with await.
+    """
+    print("\n🌐 Browser opened. Waiting for you to click 'Start Application' button...")
+
+    result = await page.evaluate("""() => {
+        return new Promise((resolve) => {
+            // Create the button element
+            const button = document.createElement('button');
+            button.id = 'start-application-btn';
+            button.innerHTML = '▶️ Start Application';
+
+            // Style the button (floating top-right)
+            button.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 14px 28px;
+                background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+                color: white;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                z-index: 2147483647;
+                font-size: 16px;
+                font-weight: 600;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+                transition: all 0.3s ease;
+                user-select: none;
+            `;
+
+            // Add hover effect
+            button.addEventListener('mouseenter', () => {
+                button.style.transform = 'translateY(-2px)';
+                button.style.boxShadow = '0 6px 16px rgba(76, 175, 80, 0.5)';
+            });
+
+            button.addEventListener('mouseleave', () => {
+                button.style.transform = 'translateY(0)';
+                button.style.boxShadow = '0 4px 12px rgba(76, 175, 80, 0.4)';
+            });
+
+            // Click handler - resolves Promise when clicked
+            button.addEventListener('click', () => {
+                // Visual feedback
+                button.style.background = '#2e7d32';
+                button.innerHTML = '✓ Starting...';
+                button.style.cursor = 'default';
+
+                // Remove button after short delay
+                setTimeout(() => {
+                    button.remove();
+                }, 500);
+
+                // Resolve the Promise to notify Python
+                resolve('started');
+            });
+
+            // Append to body
+            document.body.appendChild(button);
+        });
+    }""")
+
+    print("✓ User clicked 'Start Application'! Starting automated form filling...\n")
+    return result
+
+
 async def apply_to_job(applicant_info: dict, resume_path: str):
     """
     Apply to Rochester Regional Health job with provided information.
@@ -59,17 +131,36 @@ async def apply_to_job(applicant_info: dict, resume_path: str):
 
     tools = Tools()
 
+    # Flag to track if button has been clicked
+    button_clicked = False
+
     @tools.action(description="Upload resume file")
     async def upload_resume(browser_session):
         params = UploadFileAction(path=resume_path, index=0)
         return "Ready to upload resume"
 
+    @tools.action(description="Wait for user to click start button before proceeding")
+    async def wait_for_start_button(browser_session):
+        nonlocal button_clicked
+        if not button_clicked:
+            page = await browser_session.get_current_page()
+            if page:
+                await inject_start_button_and_wait(page)
+                button_clicked = True
+                return "User clicked start button - proceeding with form filling"
+            else:
+                return "Error: Could not get current page"
+        return "Button already clicked, continuing"
+
     # Enable cross-origin iframe support for embedded application forms
-    browser = Browser(cross_origin_iframes=True)
+    # Set headless=False so user can see the browser and click the button
+    browser = Browser(cross_origin_iframes=True, headless=False)
 
     task = f"""
 	- Your goal is to fill out and submit a job application form with the provided information.
 	- Navigate to https://apply.appcast.io/jobs/50590620606/applyboard/apply/
+	- FIRST: Use the wait_for_start_button action immediately after navigation. This will show a button for the user to click.
+	- WAIT for the user to click the button before continuing with any form filling.
 	- Scroll through the entire application and use extract_structured_data action to extract all the relevant information needed to fill out the job application form. use this information and return a structured output that can be used to fill out the entire form: {applicant_info}. Use the done action to finish the task. Fill out the job application form with the following information.
 		- Before completing every step, refer to this information for accuracy. It is structured in a way to help you fill out the form and is the source of truth.
 	- Follow these instructions carefully:
