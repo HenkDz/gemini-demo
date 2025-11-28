@@ -1,17 +1,17 @@
 """
-Automated job application submission with Browser-Use.
+Automated application form submission with Browser-Use.
 
 This script demonstrates:
 - Complex form filling with multiple steps
-- File upload (resume/CV)
+- File upload (documents)
 - Cross-origin iframe handling
 - Structured output with detailed summary
 - Using Google's Gemini model for complex multi-step tasks
 
 Example workflow:
-1. Navigate to job application page
+1. Navigate to application page
 2. Fill out personal information fields
-3. Upload resume
+3. Upload document
 4. Complete optional/demographic fields
 5. Submit application and confirm success
 """
@@ -226,9 +226,9 @@ async def inject_start_button_and_wait(page):
     return result
 
 
-async def apply_to_job(applicant_info: dict, resume_path: str):
+async def apply_to_form(applicant_info: dict, document_path: str):
     """
-    Apply to Rochester Regional Health job with provided information.
+    Submit application form with provided information.
 
     Expected JSON format in applicant_info:
     {
@@ -258,10 +258,10 @@ async def apply_to_job(applicant_info: dict, resume_path: str):
     # Flag to track if button has been clicked
     button_clicked = False
 
-    @tools.action(description="Upload resume file")
-    async def upload_resume(browser_session):
-        params = UploadFileAction(path=resume_path, index=0)
-        return "Ready to upload resume"
+    @tools.action(description="Upload document file")
+    async def upload_document(browser_session):
+        params = UploadFileAction(path=document_path, index=0)
+        return "Ready to upload document"
 
     @tools.action(description="Wait for user to click start button before proceeding")
     async def wait_for_start_button(browser_session):
@@ -281,11 +281,11 @@ async def apply_to_job(applicant_info: dict, resume_path: str):
     browser = Browser(cross_origin_iframes=True, headless=False)
 
     task = f"""
-	- Your goal is to fill out and submit a job application form with the provided information.
+	- Your goal is to fill out and submit an application form with the provided information.
 	- Navigate to https://apply.appcast.io/jobs/50590620606/applyboard/apply/
 	- FIRST: Use the wait_for_start_button action immediately after navigation. This will show a button for the user to click.
 	- WAIT for the user to click the button before continuing with any form filling.
-	- Scroll through the entire application and use extract_structured_data action to extract all the relevant information needed to fill out the job application form. use this information and return a structured output that can be used to fill out the entire form: {applicant_info}. Use the done action to finish the task. Fill out the job application form with the following information.
+	- Scroll through the entire application and use extract_structured_data action to extract all the relevant information needed to fill out the application form. use this information and return a structured output that can be used to fill out the entire form: {applicant_info}. Use the done action to finish the task. Fill out the application form with the following information.
 		- Before completing every step, refer to this information for accuracy. It is structured in a way to help you fill out the form and is the source of truth.
 	- Follow these instructions carefully:
 		- if anything pops up that blocks the form, close it out and continue filling out the form.
@@ -297,7 +297,7 @@ async def apply_to_job(applicant_info: dict, resume_path: str):
 				- "Email"
 				- "Phone number"
 			2) use the upload_file_to_element action to fill out the following:
-				- Resume upload field
+				- Document upload field
 			3) use input_text action to fill out the following:
 				- "Postal code"
 				- "Country"
@@ -330,8 +330,8 @@ async def apply_to_job(applicant_info: dict, resume_path: str):
 		- At the end of the task, structure your final_result as 1) a human-readable summary of all detections and actions performed on the page with 2) a list with all questions encountered in the page. Do not say "see above." Include a fully written out, human-readable summary at the very end.
 	"""
 
-    # Make resume file available for upload
-    available_file_paths = [resume_path]
+    # Make document file available for upload
+    available_file_paths = [document_path]
 
     agent = Agent(
         task=task,
@@ -347,29 +347,29 @@ async def apply_to_job(applicant_info: dict, resume_path: str):
     return history.final_result()
 
 
-async def main(applicant_data_path: str, resume_path: str):
+async def main(applicant_data_path: str, document_path: str):
     # Verify files exist before starting
     if not os.path.exists(applicant_data_path):
         raise FileNotFoundError(f"Applicant data file not found: {applicant_data_path}")
-    if not os.path.exists(resume_path):
-        raise FileNotFoundError(f"Resume file not found: {resume_path}")
+    if not os.path.exists(document_path):
+        raise FileNotFoundError(f"Document file not found: {document_path}")
 
     # Load applicant information from JSON
     with open(applicant_data_path) as f:  # noqa: ASYNC230
         applicant_info = json.load(f)
 
     print(f"\n{'=' * 60}")
-    print("Starting Job Application")
+    print("Starting Application Submission")
     print(f"{'=' * 60}")
     print(
         f"Applicant: {applicant_info.get('first_name')} {applicant_info.get('last_name')}"
     )
     print(f"Email: {applicant_info.get('email')}")
-    print(f"Resume: {resume_path}")
+    print(f"Document: {document_path}")
     print(f"{'=' * 60}\n")
 
     # Submit the application
-    result = await apply_to_job(applicant_info, resume_path=resume_path)
+    result = await apply_to_form(applicant_info, document_path=document_path)
 
     # Display results
     print(f"\n{'=' * 60}")
@@ -381,15 +381,15 @@ async def main(applicant_data_path: str, resume_path: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Automated job application submission",
+        description="Automated application form submission",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # Use included example data
-  python main.py --resume example_resume.pdf
+  python main.py --document example_document.pdf
 
   # Use your own data
-  python main.py --data my_info.json --resume my_resume.pdf
+  python main.py --data my_info.json --document my_document.pdf
 		""",
     )
     parser.add_argument(
@@ -398,9 +398,9 @@ Examples:
         help="Path to applicant data JSON file (default: applicant_data.json)",
     )
     parser.add_argument(
-        "--resume", required=True, help="Path to resume/CV file (PDF format)"
+        "--document", required=True, help="Path to document file (PDF format)"
     )
 
     args = parser.parse_args()
 
-    asyncio.run(main(args.data, args.resume))
+    asyncio.run(main(args.data, args.document))
