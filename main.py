@@ -139,8 +139,6 @@ async def inject_start_button_and_wait(page):
 
                 // Add options
                 const options = [
-                    { value: 'bu-latest', text: 'Browser Use (bu-latest)' },
-                    { value: 'gpt-5.1', text: 'OpenAI (gpt-5.1)' },
                     { value: 'gemini-3-pro-preview', text: 'Google (gemini-3-pro-preview)' }
                 ];
 
@@ -148,10 +146,7 @@ async def inject_start_button_and_wait(page):
                     const option = document.createElement('option');
                     option.value = opt.value;
                     option.textContent = opt.text;
-                    // Default to Browser Use
-                    if (opt.value === 'bu-latest') {
-                        option.selected = true;
-                    }
+                    option.selected = true;  // Only one option, so it's always selected
                     dropdown.appendChild(option);
                 });
 
