@@ -76,7 +76,7 @@ class AIPatternExtractor:
     Replicates GummySearch's AI-powered pattern detection.
     """
     
-    def __init__(self, model_name: str = "gemini-2.0-flash"):
+    def __init__(self, model_name: str = "gemini-3-flash-preview"):
         self.model_name = model_name
         self.model = None
         
