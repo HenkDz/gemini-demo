@@ -36,3 +36,6 @@ build/
 
 # Log files
 *.log
+
+# Persistent browser profile (contains login sessions)
+.browser_profile/

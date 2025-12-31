@@ -1,5 +1,5 @@
 """
-Automated application form submission with Browser-Use.
+Browser automation tools with Browser-Use and Gemini.
 
 This script demonstrates:
 - Complex form filling with multiple steps
@@ -7,26 +7,200 @@ This script demonstrates:
 - Cross-origin iframe handling
 - Structured output with detailed summary
 - Using Google's Gemini model for complex multi-step tasks
+- SaaS idea discovery using Gummy search
 
-Example workflow:
-1. Navigate to application page
-2. Fill out personal information fields
-3. Upload document
-4. Complete optional/demographic fields
-5. Submit application and confirm success
+Example workflows:
+1. Application submission workflow:
+   - Navigate to application page
+   - Fill out personal information fields
+   - Upload document
+   - Complete optional/demographic fields
+   - Submit application and confirm success
+
+2. SaaS idea discovery workflow:
+   - Search for niche SaaS ideas
+   - Analyze market trends
+   - Generate unique business concepts
 """
 
 import argparse
 import asyncio
 import json
 import os
+import random
 
+from browser_use import Agent, Browser, ChatGoogle, Tools
+from browser_use.tools.views import UploadFileAction
 from dotenv import load_dotenv
 
-from browser_use import Agent, Browser, Tools, ChatGoogle
-from browser_use.tools.views import UploadFileAction
-
 load_dotenv()
+
+
+async def inject_results_overlay(page, results: str, title: str = "Results"):
+    """
+    Inject a results overlay into the page that displays the automation results.
+    The overlay stays visible and the browser remains open for the user to inspect.
+    """
+    # Escape the results for JavaScript
+    escaped_results = (
+        results.replace("\\", "\\\\")
+        .replace("`", "\\`")
+        .replace("$", "\\$")
+        .replace("\n", "\\n")
+    )
+
+    await page.evaluate(f"""() => {{
+        // Remove any existing overlay
+        const existing = document.getElementById('results-overlay');
+        if (existing) existing.remove();
+
+        // Create overlay container
+        const overlay = document.createElement('div');
+        overlay.id = 'results-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 450px;
+            height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            z-index: 2147483647;
+            box-shadow: -5px 0 30px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        `;
+
+        // Header
+        const header = document.createElement('div');
+        header.style.cssText = `
+            padding: 20px;
+            background: linear-gradient(90deg, #fe750e 0%, #fd8a3d 100%);
+            color: black;
+            font-weight: 600;
+            font-size: 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        `;
+        header.innerHTML = `
+            <span>🎯 ${{`{title}`}}</span>
+            <button id="close-overlay" style="
+                background: rgba(0,0,0,0.2);
+                border: none;
+                color: black;
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                cursor: pointer;
+                font-size: 16px;
+            ">✕</button>
+        `;
+
+        // Content area
+        const content = document.createElement('div');
+        content.style.cssText = `
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            line-height: 1.6;
+            font-size: 14px;
+        `;
+
+        // Format the results with some basic styling
+        const formattedResults = `{escaped_results}`
+            .replace(/##\\s*(.+)/g, '<h3 style="color: #fd8a3d; margin-top: 20px; margin-bottom: 10px;">$1</h3>')
+            .replace(/\\*\\*(.+?)\\*\\*/g, '<strong style="color: #fff;">$1</strong>')
+            .replace(/\\n/g, '<br>');
+
+        content.innerHTML = formattedResults;
+
+        // Footer with copy button
+        const footer = document.createElement('div');
+        footer.style.cssText = `
+            padding: 15px 20px;
+            background: rgba(0,0,0,0.3);
+            display: flex;
+            gap: 10px;
+        `;
+
+        const copyBtn = document.createElement('button');
+        copyBtn.textContent = '📋 Copy Results';
+        copyBtn.style.cssText = `
+            flex: 1;
+            padding: 12px;
+            background: #fe750e;
+            color: black;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+        `;
+        copyBtn.onclick = () => {{
+            navigator.clipboard.writeText(`{escaped_results}`);
+            copyBtn.textContent = '✅ Copied!';
+            setTimeout(() => copyBtn.textContent = '📋 Copy Results', 2000);
+        }};
+
+        const minimizeBtn = document.createElement('button');
+        minimizeBtn.textContent = '➖';
+        minimizeBtn.style.cssText = `
+            width: 45px;
+            padding: 12px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+
+        let minimized = false;
+        minimizeBtn.onclick = () => {{
+            minimized = !minimized;
+            if (minimized) {{
+                content.style.display = 'none';
+                overlay.style.width = '60px';
+                overlay.style.height = 'auto';
+                overlay.style.top = '20px';
+                overlay.style.right = '20px';
+                overlay.style.borderRadius = '10px';
+                header.style.display = 'none';
+                footer.style.flexDirection = 'column';
+                copyBtn.style.display = 'none';
+                minimizeBtn.textContent = '📊';
+            }} else {{
+                content.style.display = 'block';
+                overlay.style.width = '450px';
+                overlay.style.height = '100vh';
+                overlay.style.top = '0';
+                overlay.style.right = '0';
+                overlay.style.borderRadius = '0';
+                header.style.display = 'flex';
+                footer.style.flexDirection = 'row';
+                copyBtn.style.display = 'block';
+                minimizeBtn.textContent = '➖';
+            }}
+        }};
+
+        footer.appendChild(copyBtn);
+        footer.appendChild(minimizeBtn);
+
+        overlay.appendChild(header);
+        overlay.appendChild(content);
+        overlay.appendChild(footer);
+
+        document.body.appendChild(overlay);
+
+        // Close button handler
+        document.getElementById('close-overlay').onclick = () => overlay.remove();
+    }}""")
+
+    print("\n✅ Results displayed in browser overlay. Browser will stay open.")
+    print("   You can copy the results or close the overlay when done.\n")
 
 
 async def inject_start_button_and_wait(page):
@@ -38,7 +212,9 @@ async def inject_start_button_and_wait(page):
     Uses JavaScript Promises to wait for user interactions.
     Returns the selected model name.
     """
-    print("\n🌐 Browser opened. Waiting for you to click 'FILL OUT APPLICATION' button...")
+    print(
+        "\n🌐 Browser opened. Waiting for you to click 'FILL OUT APPLICATION' button..."
+    )
 
     result = await page.evaluate("""() => {
         return new Promise((resolve) => {
@@ -139,7 +315,7 @@ async def inject_start_button_and_wait(page):
 
                 // Add options
                 const options = [
-                    { value: 'gemini-3-pro-preview', text: 'Google (gemini-3-pro-preview)' }
+                    { value: 'gemini-3-flash-preview', text: 'Google (gemini-3-flash-preview)' }
                 ];
 
                 options.forEach(opt => {
@@ -251,7 +427,7 @@ async def apply_to_form(applicant_info: dict, document_path: str):
     """
 
     # Use Gemini model for complex form filling tasks
-    llm = ChatGoogle(model="gemini-3-pro-preview", thinking_budget=1)
+    llm = ChatGoogle(model="gemini-3-flash-preview", thinking_budget=1)
 
     tools = Tools()
 
@@ -347,50 +523,201 @@ async def apply_to_form(applicant_info: dict, document_path: str):
     return history.final_result()
 
 
-async def main(applicant_data_path: str, document_path: str):
-    # Verify files exist before starting
-    if not os.path.exists(applicant_data_path):
-        raise FileNotFoundError(f"Applicant data file not found: {applicant_data_path}")
-    if not os.path.exists(document_path):
-        raise FileNotFoundError(f"Document file not found: {document_path}")
+async def discover_saas_ideas(keep_browser_open: bool = True):
+    """
+    Search for niche SaaS ideas using Gummy search and market analysis.
 
-    # Load applicant information from JSON
-    with open(applicant_data_path) as f:  # noqa: ASYNC230
-        applicant_info = json.load(f)
+    This function will:
+    1. Search for current market trends and pain points
+    2. Analyze existing solutions and gaps
+    3. Generate unique SaaS concepts with business potential
+    4. Present findings in a structured format
 
-    print(f"\n{'=' * 60}")
-    print("Starting Application Submission")
-    print(f"{'=' * 60}")
-    print(
-        f"Applicant: {applicant_info.get('first_name')} {applicant_info.get('last_name')}"
+    Args:
+        keep_browser_open: If True, displays results in browser overlay and keeps it open
+    """
+
+    # Use Gemini model for research and analysis
+    llm = ChatGoogle(model="gemini-3-flash-preview", thinking_budget=1)
+
+    browser = Browser(headless=False)
+    tools = Tools()
+
+    @tools.action(description="Search for niche markets and pain points")
+    async def search_niche_markets(browser_session):
+        page = await browser_session.get_current_page()
+
+        # Navigate to Gummy search
+        await page.goto("https://gummysearch.com/")
+        await page.wait_for_timeout(2000)
+
+        # Generate search terms for niche SaaS ideas
+        search_terms = [
+            "niche software as a service opportunities",
+            "underserved business software markets",
+            "b2b software pain points",
+            "small business software gaps",
+            "industry specific software needs",
+        ]
+
+        selected_term = random.choice(search_terms)
+
+        # Enter search query
+        await page.fill('input[placeholder*="Search" i]', selected_term)
+        await page.keyboard.press("Enter")
+        await page.wait_for_timeout(3000)
+
+        return f"Searched for: {selected_term}"
+
+    @tools.action(description="Extract relevant information from search results")
+    async def extract_relevant_info(browser_session):
+        page = await browser_session.get_current_page()
+
+        # Extract content from the page
+        content = await page.evaluate("""
+        () => {
+            // Get all text content from search results
+            const elements = document.querySelectorAll('h1, h2, h3, p, li, span');
+            const texts = Array.from(elements).map(el => el.textContent.trim());
+            return texts.filter(text => text.length > 10).join('\n');
+        }
+        """)
+
+        return f"Extracted content: {content[:5000]}"
+
+    task = """
+    Your goal is to discover interesting niche SaaS ideas using market research. Follow these steps:
+
+    1. Use search_niche_markets to search for business pain points and underserved markets
+    2. Use extract_relevant_info to gather information from the search results
+    3. Analyze the information to identify:
+       - Common pain points that aren't well addressed
+       - Industry-specific needs that lack good solutions
+       - Emerging trends that could create new opportunities
+       - Gaps between existing solutions and market needs
+    4. Generate 5-7 unique SaaS concepts based on your analysis. For each concept:
+       - Name the product
+       - Describe the problem it solves
+       - Identify the target market
+       - Outline key features
+       - Explain why it's a good business opportunity
+
+    5. Present your findings in a structured format with clear headings for each concept
+
+    When complete, use the done action with a comprehensive summary of all the SaaS ideas you've discovered.
+    """
+
+    agent = Agent(
+        task=task,
+        llm=llm,
+        demo_mode=True,
+        browser=browser,
+        tools=tools,
     )
-    print(f"Email: {applicant_info.get('email')}")
-    print(f"Document: {document_path}")
-    print(f"{'=' * 60}\n")
 
-    # Submit the application
-    result = await apply_to_form(applicant_info, document_path=document_path)
+    history = await agent.run()
 
-    # Display results
-    print(f"\n{'=' * 60}")
-    print("Application Result")
-    print(f"{'=' * 60}")
-    print(result)
-    print(f"{'=' * 60}\n")
+    result = history.final_result()
+
+    # Display results in browser overlay and keep browser open
+    if keep_browser_open and result:
+        try:
+            # Get the current page from the browser context
+            context = await browser.get_context()
+            pages = context.pages
+            if pages:
+                page = pages[-1]  # Get the last active page
+                await inject_results_overlay(page, result, "SaaS Ideas Discovery")
+
+                # Keep the browser open by waiting for user input
+                print("\n" + "=" * 60)
+                print("📊 Results are displayed in the browser sidebar!")
+                print("=" * 60)
+                print("\nPress Enter to close the browser and exit...")
+
+                # Use asyncio to wait for input without blocking
+                await asyncio.get_event_loop().run_in_executor(None, input)
+        except Exception as e:
+            print(f"Note: Could not display overlay: {e}")
+        finally:
+            await browser.close()
+
+    return result
+
+
+async def main(
+    applicant_data_path: str = None, document_path: str = None, mode: str = "apply"
+):
+    if mode == "apply":
+        # Verify files exist before starting
+        if not os.path.exists(applicant_data_path):
+            raise FileNotFoundError(
+                f"Applicant data file not found: {applicant_data_path}"
+            )
+        if not os.path.exists(document_path):
+            raise FileNotFoundError(f"Document file not found: {document_path}")
+
+        # Load applicant information from JSON
+        with open(applicant_data_path) as f:  # noqa: ASYNC230
+            applicant_info = json.load(f)
+
+        print(f"\n{'=' * 60}")
+        print("Starting Application Submission")
+        print(f"{'=' * 60}")
+        print(
+            f"Applicant: {applicant_info.get('first_name')} {applicant_info.get('last_name')}"
+        )
+        print(f"Email: {applicant_info.get('email')}")
+        print(f"Document: {document_path}")
+        print(f"{'=' * 60}\n")
+
+        # Submit the application
+        result = await apply_to_form(applicant_info, document_path=document_path)
+
+        # Display results
+        print(f"\n{'=' * 60}")
+        print("Application Result")
+        print(f"{'=' * 60}")
+        print(result)
+        print(f"{'=' * 60}\n")
+
+    elif mode == "saas":
+        print(f"\n{'=' * 60}")
+        print("Discovering Niche SaaS Ideas")
+        print(f"{'=' * 60}\n")
+
+        # Discover SaaS ideas
+        result = await discover_saas_ideas()
+
+        # Display results
+        print(f"\n{'=' * 60}")
+        print("SaaS Ideas Discovery Results")
+        print(f"{'=' * 60}")
+        print(result)
+        print(f"{'=' * 60}\n")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Automated application form submission",
+        description="Browser automation tools with Browser-Use and Gemini",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Use included example data
+  # Application submission mode (default)
   python main.py --document example_document.pdf
 
-  # Use your own data
+  # Use your own data for application
   python main.py --data my_info.json --document my_document.pdf
+
+  # SaaS idea discovery mode
+  python main.py --mode saas
 		""",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["apply", "saas"],
+        default="apply",
+        help="Operation mode: 'apply' for form filling, 'saas' for idea discovery (default: apply)",
     )
     parser.add_argument(
         "--data",
@@ -398,9 +725,14 @@ Examples:
         help="Path to applicant data JSON file (default: applicant_data.json)",
     )
     parser.add_argument(
-        "--document", required=True, help="Path to document file (PDF format)"
+        "--document",
+        help="Path to document file (PDF format) - required for 'apply' mode",
     )
 
     args = parser.parse_args()
 
-    asyncio.run(main(args.data, args.document))
+    # Validate arguments based on mode
+    if args.mode == "apply" and not args.document:
+        parser.error("--document is required for 'apply' mode")
+
+    asyncio.run(main(args.data, args.document, args.mode))

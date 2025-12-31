@@ -1,18 +1,13 @@
-# Application Submission Demo
+# Browser Automation with Gemini
 
-Automate application form submission using Browser-Use and Gemini 3 Pro Preview with AI-powered form filling.
+Automate browser tasks using Browser-Use and Google's Gemini models with AI-powered automation.
 
-## What This Does
+## Features
 
-This template demonstrates automated application submission. The agent will:
-
-1. Navigate to the application page
-2. Fill out personal information (name, email, phone, address)
-3. Upload your document file
-4. Complete demographic and optional fields
-5. Submit the application and confirm success
-
-The template uses Google's `gemini-3-pro-preview` model which excels at complex multi-step tasks like form filling.
+- **Web UI**: User-friendly Gradio interface to enter prompts and view results
+- **Application Form Filling**: Automated form submission with document upload
+- **SaaS Research**: Discover niche SaaS ideas through market research
+- **Results Overlay**: Results displayed directly in the browser sidebar
 
 ## Setup
 
@@ -42,27 +37,52 @@ uv sync
 
 ## Usage
 
-### Basic Usage (with included example data)
+### 🌐 Web UI (Recommended)
+
+Launch the Gradio web interface for the best experience:
 
 ```bash
-uv run main.py --document example_document.pdf
+uv run ui.py
 ```
 
-This will use the included `applicant_data.json` with example information.
+This opens a web UI where you can:
+- Enter custom prompts for browser automation
+- Select different Gemini models
+- Watch the browser perform tasks in real-time
+- View formatted results in a nice panel
+- Copy results easily
 
-### With Your Own Data
+### 📊 SaaS Ideas Research (CLI)
 
-1. Create your own data JSON file (see format below)
-2. Prepare your document as a PDF file
-3. Run the script:
+Discover niche SaaS opportunities with results displayed in a browser sidebar:
 
 ```bash
-uv run main.py --data my_info.json --document my_document.pdf
+uv run main.py --mode saas
 ```
 
-### Data Format
+The browser will:
+1. Research market trends and pain points
+2. Analyze gaps in existing solutions
+3. Generate unique SaaS concepts
+4. Display results in a **sidebar overlay** (stays open for you to review!)
 
-Create a JSON file with your information:
+### 📝 Application Form Filling (CLI)
+
+Automate form submission with the included example data:
+
+```bash
+uv run main.py --mode apply --document example_document.pdf
+```
+
+Or with your own data:
+
+```bash
+uv run main.py --mode apply --data my_info.json --document my_document.pdf
+```
+
+## Data Format
+
+For application mode, create a JSON file with your information:
 
 ```json
 {
@@ -83,6 +103,20 @@ Create a JSON file with your information:
 	"disability_status": "No, I do not have a disability"
 }
 ```
+
+## Available Models
+
+| Model | Description |
+|-------|-------------|
+| `gemini-3-flash-preview` | Fast, good for most tasks (default) |
+| `gemini-2.5-flash-preview-05-20` | Balanced speed and quality |
+| `gemini-2.5-pro-preview-05-06` | Best quality, slower |
+
+## Tips
+
+- **Web UI**: Best for interactive research and custom prompts
+- **CLI with overlay**: Results stay visible in browser; press Enter to close
+- **Headless mode**: Not supported - browser must be visible for interaction
 
 ## Support
 
